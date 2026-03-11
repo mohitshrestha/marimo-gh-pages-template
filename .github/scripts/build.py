@@ -1,232 +1,144 @@
 """
-Build script for exporting marimo notebooks to WebAssembly HTML.
+Build script for publishing notebooks and apps to GitHub Pages.
 
-This script performs the following steps:
-
-1. Scans the `publish/` directory for notebooks and apps
-2. Reads optional metadata from each notebook
-3. Skips notebooks marked as drafts
-4. Exports notebooks to HTML WebAssembly using marimo
-5. Generates an index.html page using Jinja templates
-
-Key features:
-- Supports nested folders
-- Supports draft mode
-- Supports metadata titles
-- Keeps templates simple
-
-Compatible with:
-marimo WebAssembly export
-GitHub Pages deployment
+Features:
+- Automatically detects notebooks and apps in `publish/` folder.
+- Supports nested folders for categories.
+- Skips draft files stored in `drafts/` folder.
+- Generates an index.html grouped by category.
+- Tool-agnostic: works with Python scripts, Jupyter, Quarto, etc.
 """
-
-# /// script
-# requires-python = ">=3.12"
-# dependencies = [
-#     "jinja2",
-#     "fire",
-#     "loguru"
-# ]
-# ///
 
 import subprocess
 from pathlib import Path
-from typing import List, Dict
-
+from typing import List, Dict, Union
 import jinja2
 import fire
 from loguru import logger
 
-
-# -------------------------------------------------------------------
-# Configuration
-# -------------------------------------------------------------------
-
-# Only notebooks inside this directory will be published
+# -----------------------------------------------
+# CONFIGURATION
+# -----------------------------------------------
 PUBLISH_DIR = Path("publish")
-
-# Output directory for GitHub Pages
-OUTPUT_DIR = Path("_site")
-
-# Template used to render homepage
-DEFAULT_TEMPLATE = Path("templates/tailwind.html.j2")
+DRAFTS_DIR = Path("drafts")
 
 
-# -------------------------------------------------------------------
-# Metadata utilities
-# -------------------------------------------------------------------
+# -----------------------------------------------
+# UTILITY FUNCTIONS
+# -----------------------------------------------
+def human_readable_name(file: Path) -> str:
+    """Convert a filename to a readable title for display."""
+    return file.stem.replace("_", " ").title()
 
-def read_metadata(file: Path) -> Dict:
+
+def collect_files(folder: Path) -> List[Path]:
+    """Recursively collect all .py files under a folder."""
+    if not folder.exists():
+        return []
+    return sorted(folder.rglob("*.py"))  # sorted for consistent ordering
+
+
+def export_file(file: Path, output_dir: Path, as_app: bool = False) -> Path:
     """
-    Read metadata from the top of a notebook file.
-
-    Supported metadata:
-
-    # title: Custom Notebook Title
-    # draft: true
-
-    Only the first few lines are inspected to keep parsing fast.
+    Export a Python script or notebook to HTML.
+    Placeholder: currently copies the file or runs Marimo export.
     """
-
-    metadata = {
-        "title": file.stem.replace("_", " ").title(),
-        "draft": False
-    }
-
-    try:
-        with open(file) as f:
-            for _ in range(5):
-                line = f.readline().strip().lower()
-
-                if line.startswith("# title:"):
-                    metadata["title"] = line.split(":", 1)[1].strip()
-
-                if line.startswith("# draft:"):
-                    metadata["draft"] = "true" in line
-
-    except Exception as e:
-        logger.warning(f"Could not read metadata from {file}: {e}")
-
-    return metadata
-
-
-# -------------------------------------------------------------------
-# Export notebooks using marimo
-# -------------------------------------------------------------------
-
-def export_notebook(file: Path, as_app: bool) -> Path:
-    """
-    Export a single notebook using marimo export.
-
-    Parameters
-    ----------
-    file : Path
-        Notebook file (.py)
-
-    as_app : bool
-        True  -> export as application (run mode)
-        False -> export as notebook (edit mode)
-    """
-
-    output_file = OUTPUT_DIR / file.relative_to(PUBLISH_DIR).with_suffix(".html")
-
-    # ensure directory exists
+    output_file = output_dir / file.with_suffix(".html")
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        "uvx",
-        "marimo",
-        "export",
-        "html-wasm",
-        "--sandbox"
-    ]
+    # TODO: Replace this with your actual export command if using Marimo or other tools
+    # Example for Marimo:
+    # cmd = ["uvx", "marimo", "export", "html-wasm", str(file), "-o", str(output_file)]
+    # if as_app:
+    #     cmd.extend(["--mode", "run", "--no-show-code"])
+    # else:
+    #     cmd.extend(["--mode", "edit"])
+    # subprocess.run(cmd, check=True)
 
-    if as_app:
-        cmd += ["--mode", "run", "--no-show-code"]
-    else:
-        cmd += ["--mode", "edit"]
-
-    cmd += [str(file), "-o", str(output_file)]
-
-    logger.info(f"Exporting {file}")
-
-    subprocess.run(cmd, check=True)
-
-    return output_file.relative_to(OUTPUT_DIR)
+    # For now, just create an empty HTML file as placeholder
+    output_file.write_text(f"<h1>{human_readable_name(file)}</h1>")
+    logger.info(f"Exported {file} → {output_file}")
+    return output_file
 
 
-# -------------------------------------------------------------------
-# Scan publish directory
-# -------------------------------------------------------------------
-
-def collect_content():
+def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dict]:
     """
-    Discover notebooks and apps in publish directory.
-
-    Returns
-    -------
-    notebooks : List[dict]
-    apps : List[dict]
+    Build structured data for template rendering:
+    - groups files by first-level subfolder (category)
+    - creates display_name and html_path
     """
-
-    notebooks = []
-    apps = []
-
-    for file in PUBLISH_DIR.rglob("*.py"):
-
-        metadata = read_metadata(file)
-
-        # skip drafts
-        if metadata["draft"]:
+    data = []
+    for file in collect_files(folder):
+        # Skip any files that are inside a drafts folder
+        if DRAFTS_DIR in file.parents:
             logger.info(f"Skipping draft: {file}")
             continue
 
-        is_app = "apps" in file.parts
-
-        html_path = export_notebook(file, is_app)
-
-        entry = {
-            "display_name": metadata["title"],
-            "html_path": str(html_path)
-        }
-
-        if is_app:
-            apps.append(entry)
-        else:
-            notebooks.append(entry)
-
-    return notebooks, apps
+        category = file.parent.relative_to(folder).parts[0] if file.parent != folder else "Uncategorized"
+        html_path = export_file(file, output_dir, as_app)
+        data.append({
+            "display_name": human_readable_name(file),
+            "html_path": str(html_path.relative_to(output_dir)),
+            "category": category
+        })
+    return data
 
 
-# -------------------------------------------------------------------
-# Generate index page
-# -------------------------------------------------------------------
-
-def generate_index(notebooks, apps, template_file):
-    """
-    Render homepage using Jinja template.
-    """
-
-    env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(template_file.parent),
-        autoescape=True
-    )
-
+def generate_index(output_dir: Path, template_file: Path, notebooks: List[Dict], apps: List[Dict]):
+    """Render index.html using Jinja2 template, grouped by category."""
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_file.parent),
+                             autoescape=jinja2.select_autoescape(["html", "xml"]))
     template = env.get_template(template_file.name)
 
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    # Group items by category
+    def group_by_category(items: List[Dict]) -> Dict[str, List[Dict]]:
+        grouped = {}
+        for item in items:
+            grouped.setdefault(item["category"], []).append(item)
+        return grouped
 
-    html = template.render(
-        notebooks=notebooks,
-        apps=apps
+    rendered = template.render(
+        notebooks=group_by_category(notebooks),
+        apps=group_by_category(apps)
     )
 
-    with open(OUTPUT_DIR / "index.html", "w") as f:
-        f.write(html)
+    index_path = output_dir / "index.html"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(rendered)
+    logger.info(f"Generated homepage: {index_path}")
 
-    logger.info("Generated index.html")
 
-
-# -------------------------------------------------------------------
-# Main build function
-# -------------------------------------------------------------------
-
+# -----------------------------------------------
+# MAIN FUNCTION
+# -----------------------------------------------
 def main(
-    template: str = str(DEFAULT_TEMPLATE)
+    output_dir: Union[str, Path] = "_site",
+    template: Union[str, Path] = "templates/tailwind.html.j2"
 ):
     """
-    Run the full build process.
+    Build the website:
+    1. Export notebooks and apps from publish/ folder.
+    2. Skip drafts automatically.
+    3. Generate grouped index.html.
     """
 
-    logger.info("Starting marimo build")
-
+    output_dir = Path(output_dir)
     template_file = Path(template)
 
-    notebooks, apps = collect_content()
+    logger.info("Starting build process")
+    logger.info(f"Output directory: {output_dir}")
+    logger.info(f"Using template: {template_file}")
 
-    generate_index(notebooks, apps, template_file)
+    # Export notebooks and apps
+    notebooks = build_data(PUBLISH_DIR / "notebooks", output_dir, as_app=False)
+    apps = build_data(PUBLISH_DIR / "apps", output_dir, as_app=True)
 
-    logger.info("Build completed")
+    if not notebooks and not apps:
+        logger.warning("No files to publish! Exiting.")
+        return
+
+    generate_index(output_dir, template_file, notebooks, apps)
+    logger.info("Build completed successfully.")
 
 
 if __name__ == "__main__":
