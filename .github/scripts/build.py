@@ -85,8 +85,12 @@ def build_data(
         for file in files_in_category:
             output_html = output_dir / file.with_suffix(".html")
             if _export_html_wasm(file, output_dir, as_app):
-                # Prepend base_url to make GitHub Pages–friendly links
-                relative_path = Path(base_url) / output_html.relative_to(output_dir)
+                # Relative path from output_dir
+                relative_path = output_html.relative_to(output_dir)
+                # Prepend base_url **only once** to avoid double publish/
+                if base_url:
+                    relative_path = Path(base_url) / relative_path
+
                 data.append({
                     "display_name": file.stem.replace("_", " ").title(),
                     "html_path": str(relative_path.as_posix()),
@@ -98,7 +102,10 @@ def build_data(
     for file in top_level_files:
         output_html = output_dir / file.with_suffix(".html")
         if _export_html_wasm(file, output_dir, as_app):
-            relative_path = Path(base_url) / output_html.relative_to(output_dir)
+            relative_path = output_html.relative_to(output_dir)
+            if base_url:
+                relative_path = Path(base_url) / relative_path
+
             data.append({
                 "display_name": file.stem.replace("_", " ").title(),
                 "html_path": str(relative_path.as_posix()),
