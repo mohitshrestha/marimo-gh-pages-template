@@ -1,68 +1,100 @@
-# This workflow builds and deploys marimo notebooks to GitHub Pages
-# It runs automatically when changes are pushed to the main branch or can be triggered manually
+# Workflow to build and deploy marimo notebooks and apps to GitHub Pages
+# Features:
+# - Uses Python + uv package manager to export notebooks and apps
+# - Automatically skips drafts and generates grouped index pages
+# - Supports nested folders (categories) for intuitive organization
+# - Deploys the generated _site directory to GitHub Pages
+# - Compatible with Python scripts, Jupyter notebooks, Quarto, etc.
 
 name: Deploy to GitHub Pages
 
-# Defines when the workflow will run
+# Trigger conditions
 on:
   push:
-    branches: ['main']  # Trigger on pushes to main branch
-  workflow_dispatch:    # Allow manual triggering from the GitHub UI
+    branches: ['main']        # Trigger the workflow on push to main branch
+  workflow_dispatch:          # Allow manual triggering from GitHub UI
 
-# Concurrency settings to manage multiple workflow runs
+# Concurrency ensures only one workflow run at a time
 concurrency:
-  group: 'pages'             # Only one workflow in the 'pages' group can run at a time
-  cancel-in-progress: false  # Don't cancel in-progress runs when a new one is triggered
+  group: 'pages'
+  cancel-in-progress: false   # Do not cancel ongoing workflow runs
 
-# Environment variables used by the workflow
+# Environment variables for the workflow
 env:
-  UV_SYSTEM_PYTHON: 1   # Use system Python with uv package manager
+  UV_SYSTEM_PYTHON: 1                    # Use system Python for uv package manager
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Opt-in Node.js 24 for deprecated JS actions to future-proof workflow
 
 jobs:
-  # The build job exports marimo notebooks to static HTML/WebAssembly
+  # ------------------------------
+  # BUILD JOB
+  # ------------------------------
   build:
-    runs-on: ubuntu-latest  # Use the latest Ubuntu runner
+    runs-on: ubuntu-latest
     steps:
-      # Check out the repository code
-      - uses: actions/checkout@v5
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        # Ensures the workflow has access to your code
 
-      # Install uv package manager for faster Python package installation
-      - name: 🚀 Install uv
+      # Step 2: Optional Python setup
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.14'  # Adjust to your preferred Python version
+        # Ensures reproducible Python environment
+
+      # Step 3: Install uv package manager
+      - name: Install uv
         uses: astral-sh/setup-uv@v7
+        # UV simplifies Python dependency management and execution
 
-      # Run the build script to export notebooks to WebAssembly
-      - name: 🛠️ Export notebooks
+      # Step 4: Build/export notebooks and apps
+      - name: Export notebooks and apps
         run: |
-          # todo: Ultimately this function should not be part of this repo
-          # It should very much be an action such that other repos
-          # can use it without forking or copying it
-          # No, it should not be an action. As otherwise can't run before push
-          uv run .github/scripts/build.py  # This script exports all notebooks to the _site directory
-          tree _site                       # Display the exported files
-    
-      # Upload the generated site as an artifact for the deploy job
-      - name: 📤 Upload artifact
+          # Use build.py script to export files
+          # Explicitly specify output directory and template
+          uv run .github/scripts/build.py --output-dir _site --template templates/tailwind.html.j2
+          
+          # Display folder structure for debugging purposes
+          echo "Build complete, showing _site structure:"
+          tree _site || true
+
+      # Step 5: Verify _site folder is not empty
+      - name: Verify site output
+        run: |
+          # Prevent deploying an empty site
+          if [ ! -d "_site" ] || [ -z "$(ls -A _site)" ]; then
+            echo "_site directory is empty! Aborting deployment."
+            exit 1
+          fi
+
+      # Step 6: Upload _site as artifact for deployment
+      - name: Upload site artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: _site  # Directory containing the built site
+          path: _site
+        # This artifact is used by the deploy job
 
-  # The deploy job publishes the built site to GitHub Pages
+  # ------------------------------
+  # DEPLOY JOB
+  # ------------------------------
   deploy:
-    needs: build  # This job depends on the build job completing successfully
+    needs: build  # Deploy runs only after build succeeds
+    runs-on: ubuntu-latest
 
-    # Required permissions for the GitHub Pages deployment
+    # Required permissions for GitHub Pages deployment
     permissions:
-      pages: write      # Permission to deploy to Pages
-      id-token: write   # Permission to verify the deployment
+      pages: write   # Grant write access to GitHub Pages
+      id-token: write # Required for authentication
 
-    # Configure the deployment environment
+    # Deployment environment configuration
     environment:
-      name: github-pages                             # Deploy to the github-pages environment
-      url: ${{ steps.deployment.outputs.page_url }}  # Use the URL from the deployment step
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
-    runs-on: ubuntu-latest  # Use the latest Ubuntu runner
     steps:
-      # Deploy the site to GitHub Pages using the official action
-      - name: 🚀 Deploy to GitHub Pages
-        id: deployment                 # ID used to reference this step's outputs
-        uses: actions/deploy-pages@v4  # GitHub's official Pages deployment action
+      # Step 1: Deploy the site to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        # Publishes the _site folder to GitHub Pages
