@@ -5,13 +5,14 @@
 # - Supports nested folders (categories) for intuitive organization
 # - Deploys the generated _site directory to GitHub Pages
 # - Compatible with Python scripts, Jupyter notebooks, Quarto, etc.
+# - Node.js 24 opt-in for all JS actions to avoid deprecation warnings
 
 name: Deploy to GitHub Pages
 
 # Trigger conditions
 on:
   push:
-    branches: ['main']        # Trigger the workflow on push to main branch
+    branches: ['main']        # Trigger on push to main branch
   workflow_dispatch:          # Allow manual triggering from GitHub UI
 
 # Concurrency ensures only one workflow run at a time
@@ -21,8 +22,9 @@ concurrency:
 
 # Environment variables for the workflow
 env:
-  UV_SYSTEM_PYTHON: 1                    # Use system Python for uv package manager
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Opt-in Node.js 24 for deprecated JS actions to future-proof workflow
+  UV_SYSTEM_PYTHON: 1                       # Use system Python for uv package manager
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Opt-in Node.js 24 for deprecated JS actions
+  # ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true  # Optional fallback for Node.js 20 if needed
 
 jobs:
   # ------------------------------
@@ -31,17 +33,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout repository
+      # Step 1: Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v5
-        # Ensures the workflow has access to your code
+        # Ensures workflow has access to repository code
 
       # Step 2: Optional Python setup
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.14'  # Adjust to your preferred Python version
-        # Ensures reproducible Python environment
+        # Provides a reproducible Python environment
 
       # Step 3: Install uv package manager
       - name: Install uv
@@ -51,9 +53,13 @@ jobs:
       # Step 4: Build/export notebooks and apps
       - name: Export notebooks and apps
         run: |
-          # Use build.py script to export files
+          # Use build.py script to export all files
           # Explicitly specify output directory and template
-          uv run .github/scripts/build.py --output-dir _site --template templates/tailwind.html.j2
+          # Use --no-dependency-cache to avoid uv warnings if no requirements/pyproject exists
+          uv run .github/scripts/build.py \
+             --output-dir _site \
+             --template templates/tailwind.html.j2 \
+             --no-dependency-cache
           
           # Display folder structure for debugging purposes
           echo "Build complete, showing _site structure:"
