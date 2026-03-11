@@ -1,5 +1,5 @@
 """
-build.py - Build script for marimo notebooks/apps
+build.py - GitHub Pages–ready build script for marimo notebooks/apps
 
 Features:
 - Recursively scans publish/notebooks and publish/apps
@@ -8,10 +8,7 @@ Features:
 - Logs empty categories for debugging
 - Exits with code 1 if no notebooks or apps are found
 - Generates index.html using a Jinja2 template
-- Supports any template file, e.g., tailwind.html.j2 or index.html.j2
-
-Usage:
-uv run .github/scripts/build.py --output-dir _site --template templates/tailwind.html.j2
+- Generates GitHub Pages–friendly URLs automatically
 """
 
 import subprocess
@@ -26,8 +23,8 @@ from loguru import logger
 # ----------------------------
 # CONFIGURATION
 # ----------------------------
-PUBLISH_DIR = Path("publish")     # Folder containing notebooks/apps ready to publish
-DRAFTS_DIR = Path("drafts")       # Folder containing draft notebooks/apps
+PUBLISH_DIR = Path("publish")  # Folder containing notebooks/apps ready to publish
+DRAFTS_DIR = Path("drafts")    # Folder containing draft notebooks/apps
 
 # ----------------------------
 # EXPORT SINGLE NOTEBOOK/APP
@@ -35,21 +32,11 @@ DRAFTS_DIR = Path("drafts")       # Folder containing draft notebooks/apps
 def _export_html_wasm(notebook_path: Path, output_dir: Path, as_app: bool = False) -> bool:
     """
     Export a single marimo notebook or app to HTML/WebAssembly format.
-
-    Args:
-        notebook_path (Path): Path to the Python notebook/app
-        output_dir (Path): Directory to output HTML
-        as_app (bool): True if exporting an app (run mode), False for notebook (edit mode)
-
-    Returns:
-        bool: True if export succeeds, False otherwise
     """
     output_file: Path = output_dir / notebook_path.with_suffix(".html")
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Base export command
     cmd = ["uvx", "marimo", "export", "html-wasm", "--sandbox"]
-
     if as_app:
         logger.info(f"Exporting {notebook_path} as app")
         cmd.extend(["--mode", "run", "--no-show-code"])
@@ -70,28 +57,16 @@ def _export_html_wasm(notebook_path: Path, output_dir: Path, as_app: bool = Fals
         return False
 
 # ----------------------------
-# COLLECT PYTHON FILES
-# ----------------------------
-def collect_files(folder: Path) -> List[Path]:
-    """Recursively collect all .py files in folder, ignoring drafts."""
-    if not folder.exists():
-        return []
-    return sorted([f for f in folder.rglob("*.py") if DRAFTS_DIR not in f.parents])
-
-# ----------------------------
 # BUILD DATA FOR TEMPLATE
 # ----------------------------
-def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dict]:
+def build_data(
+    folder: Path,
+    output_dir: Path,
+    as_app: bool = False,
+    base_url: str = "publish/"
+) -> List[Dict]:
     """
-    Build structured data for Jinja2 template rendering.
-
-    Args:
-        folder (Path): Folder containing notebooks/apps
-        output_dir (Path): Output folder for exported HTML
-        as_app (bool): True if exporting apps, False for notebooks
-
-    Returns:
-        List[Dict]: List of dictionaries with keys: display_name, html_path, category
+    Build structured data for Jinja2 template rendering with GitHub Pages–friendly links.
     """
     data = []
 
@@ -106,23 +81,27 @@ def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dic
         if not files_in_category:
             logger.warning(f"No notebooks/apps in category: {category_path}")
             continue
+
         for file in files_in_category:
-            html_path = output_dir / file.with_suffix(".html")
+            output_html = output_dir / file.with_suffix(".html")
             if _export_html_wasm(file, output_dir, as_app):
+                # Prepend base_url to make GitHub Pages–friendly links
+                relative_path = Path(base_url) / output_html.relative_to(output_dir)
                 data.append({
                     "display_name": file.stem.replace("_", " ").title(),
-                    "html_path": str(html_path.relative_to(output_dir)),
+                    "html_path": str(relative_path.as_posix()),
                     "category": category_path.name
                 })
 
-    # Handle files directly under folder (uncategorized)
+    # Handle top-level (uncategorized) files
     top_level_files = [f for f in folder.glob("*.py") if DRAFTS_DIR not in f.parents]
     for file in top_level_files:
-        html_path = output_dir / file.with_suffix(".html")
+        output_html = output_dir / file.with_suffix(".html")
         if _export_html_wasm(file, output_dir, as_app):
+            relative_path = Path(base_url) / output_html.relative_to(output_dir)
             data.append({
                 "display_name": file.stem.replace("_", " ").title(),
-                "html_path": str(html_path.relative_to(output_dir)),
+                "html_path": str(relative_path.as_posix()),
                 "category": "Uncategorized"
             })
 
@@ -134,12 +113,6 @@ def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dic
 def generate_index(output_dir: Path, template_file: Path, notebooks: List[Dict], apps: List[Dict]):
     """
     Render index.html using Jinja2 template.
-
-    Args:
-        output_dir (Path): Directory to save index.html
-        template_file (Path): Path to Jinja2 template
-        notebooks (List[Dict]): Notebook data
-        apps (List[Dict]): App data
     """
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(template_file.parent),
@@ -167,19 +140,20 @@ def generate_index(output_dir: Path, template_file: Path, notebooks: List[Dict],
 # ----------------------------
 # MAIN ENTRY POINT
 # ----------------------------
-def main(output_dir: Union[str, Path] = "_site", template: Union[str, Path] = "templates/tailwind.html.j2"):
+def main(
+    output_dir: Union[str, Path] = "_site",
+    template: Union[str, Path] = "templates/tailwind.html.j2",
+    base_url: str = "publish/"  # <-- Set "" if deploying publish/ as GitHub Pages root
+):
     """
     Main build process.
-    1. Export notebooks and apps
-    2. Generate index.html
-    3. Exit 1 if nothing is found
     """
     logger.info("Starting marimo build process")
     output_dir = Path(output_dir)
     template_file = Path(template)
 
-    notebooks = build_data(PUBLISH_DIR / "notebooks", output_dir, as_app=False)
-    apps = build_data(PUBLISH_DIR / "apps", output_dir, as_app=True)
+    notebooks = build_data(PUBLISH_DIR / "notebooks", output_dir, as_app=False, base_url=base_url)
+    apps = build_data(PUBLISH_DIR / "apps", output_dir, as_app=True, base_url=base_url)
 
     if not notebooks and not apps:
         logger.error("No notebooks or apps found! Exiting.")
@@ -188,6 +162,6 @@ def main(output_dir: Union[str, Path] = "_site", template: Union[str, Path] = "t
     generate_index(output_dir, template_file, notebooks, apps)
     logger.info("Build completed successfully")
 
-# Run main via Fire CLI
+# Run via Fire CLI
 if __name__ == "__main__":
     fire.Fire(main)
