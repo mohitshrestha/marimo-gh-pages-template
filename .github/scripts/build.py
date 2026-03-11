@@ -1,11 +1,12 @@
 """
 Build script for marimo notebooks/apps.
 
-- Scans publish/notebooks and publish/apps (recursively)
-- Handles nested folders as categories
+Features:
+- Scans publish/notebooks and publish/apps recursively
+- Treats subfolders as categories
 - Skips drafts automatically
 - Logs empty categories for debugging
-- Exits with code 1 if no notebooks or apps found
+- Exits with code 1 if nothing is found
 - Generates index.html using Jinja2 templates
 """
 
@@ -19,17 +20,16 @@ import jinja2
 from loguru import logger
 
 # ----------------------------
-# CONFIG
+# CONFIGURATION
 # ----------------------------
 PUBLISH_DIR = Path("publish")
-DRAFTS_DIR = Path("drafts")
-
+DRAFTS_DIR = Path("drafts")  # Draft files to skip
 
 # ----------------------------
-# EXPORT FUNCTION
+# EXPORT A SINGLE NOTEBOOK/APP
 # ----------------------------
 def _export_html_wasm(notebook_path: Path, output_dir: Path, as_app: bool = False) -> bool:
-    """Export a single marimo notebook to HTML/WebAssembly."""
+    """Export a single marimo notebook or app to HTML/WebAssembly."""
     output_file: Path = output_dir / notebook_path.with_suffix(".html")
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -45,7 +45,6 @@ def _export_html_wasm(notebook_path: Path, output_dir: Path, as_app: bool = Fals
 
     try:
         subprocess.run(cmd, capture_output=True, text=True, check=True)
-        logger.debug(f"Command succeeded: {' '.join(cmd)}")
         return True
     except subprocess.CalledProcessError as e:
         logger.error(f"Error exporting {notebook_path}: {e.stderr}")
@@ -54,9 +53,8 @@ def _export_html_wasm(notebook_path: Path, output_dir: Path, as_app: bool = Fals
         logger.error(f"Unexpected error exporting {notebook_path}: {e}")
         return False
 
-
 # ----------------------------
-# COLLECT FILES FUNCTION
+# COLLECT FILES RECURSIVELY
 # ----------------------------
 def collect_files(folder: Path) -> List[Path]:
     """Recursively collect all Python files in a folder."""
@@ -64,13 +62,12 @@ def collect_files(folder: Path) -> List[Path]:
         return []
     return sorted(folder.rglob("*.py"))
 
-
 # ----------------------------
-# BUILD DATA FUNCTION
+# BUILD DATA FOR TEMPLATE
 # ----------------------------
 def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dict]:
     """
-    Build structured data for template rendering.
+    Build structured data for Jinja2 template rendering.
     - Groups files by first-level subfolder (category)
     - Logs empty categories
     """
@@ -80,13 +77,14 @@ def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dic
         logger.warning(f"Folder does not exist: {folder}")
         return []
 
-    # Find all categories (first-level subfolders)
-    for category_path in [p for p in folder.rglob("*") if p.is_dir() and p.parent == folder]:
-        category_files = [f for f in category_path.rglob("*.py") if DRAFTS_DIR not in f.parents]
-        if not category_files:
+    # Get first-level subfolders as categories
+    first_level_dirs = [p for p in folder.iterdir() if p.is_dir()]
+    for category_path in first_level_dirs:
+        files_in_category = [f for f in category_path.rglob("*.py") if DRAFTS_DIR not in f.parents]
+        if not files_in_category:
             logger.warning(f"No notebooks/apps in category: {category_path}")
             continue
-        for file in category_files:
+        for file in files_in_category:
             html_path = output_dir / file.with_suffix(".html")
             if _export_html_wasm(file, output_dir, as_app):
                 data.append({
@@ -95,7 +93,7 @@ def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dic
                     "category": category_path.name
                 })
 
-    # Also handle files directly under the folder (Uncategorized)
+    # Handle files directly under folder (Uncategorized)
     top_level_files = [f for f in folder.glob("*.py") if DRAFTS_DIR not in f.parents]
     for file in top_level_files:
         html_path = output_dir / file.with_suffix(".html")
@@ -108,9 +106,8 @@ def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dic
 
     return data
 
-
 # ----------------------------
-# INDEX GENERATION FUNCTION
+# GENERATE INDEX.HTML
 # ----------------------------
 def generate_index(output_dir: Path, template_file: Path, notebooks: List[Dict], apps: List[Dict]):
     """Render index.html using Jinja2 template, grouped by category."""
@@ -118,7 +115,7 @@ def generate_index(output_dir: Path, template_file: Path, notebooks: List[Dict],
                              autoescape=jinja2.select_autoescape(["html", "xml"]))
     template = env.get_template(template_file.name)
 
-    # Group items by category
+    # Group by category
     def group_by_category(items: List[Dict]) -> Dict[str, List[Dict]]:
         grouped = {}
         for item in items:
@@ -135,12 +132,11 @@ def generate_index(output_dir: Path, template_file: Path, notebooks: List[Dict],
     index_path.write_text(rendered)
     logger.info(f"Generated index.html at {index_path}")
 
-
 # ----------------------------
 # MAIN FUNCTION
 # ----------------------------
 def main(output_dir: Union[str, Path] = "_site", template: Union[str, Path] = "templates/tailwind.html.j2"):
-    logger.info("Starting build process")
+    logger.info("Starting marimo build process")
     output_dir = Path(output_dir)
     template_file = Path(template)
 
@@ -148,14 +144,13 @@ def main(output_dir: Union[str, Path] = "_site", template: Union[str, Path] = "t
     notebooks = build_data(PUBLISH_DIR / "notebooks", output_dir, as_app=False)
     apps = build_data(PUBLISH_DIR / "apps", output_dir, as_app=True)
 
-    # Exit if nothing to build
+    # Exit cleanly if nothing is found
     if not notebooks and not apps:
         logger.error("No notebooks or apps found! Exiting.")
         sys.exit(1)
 
     generate_index(output_dir, template_file, notebooks, apps)
     logger.info("Build completed successfully")
-
 
 if __name__ == "__main__":
     fire.Fire(main)
