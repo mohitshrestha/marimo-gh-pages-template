@@ -1,33 +1,56 @@
+# -----------------------------------------
+# GitHub Actions Workflow: Deploy Marimo Notebooks/Apps to GitHub Pages
+# Features:
+# - Scans publish/notebooks and publish/apps recursively
+# - Skips drafts automatically
+# - Handles nested subfolders (categories)
+# - Generates index.html using Jinja2 templates
+# - Node.js 24 opt-in for all JS actions to avoid deprecation warnings
+# - Safe Python version
+# - uv package manager caching for faster builds
+# - Proper artifact upload and deployment to GitHub Pages
+# -----------------------------------------
+
 name: Deploy to GitHub Pages
 
+# Trigger workflow on push to main branch or manual run
 on:
   push:
     branches: ['main']
   workflow_dispatch:
 
+# Ensure only one workflow runs at a time
 concurrency:
   group: 'pages'
   cancel-in-progress: false
 
+# Environment variables
 env:
-  UV_SYSTEM_PYTHON: 1
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  UV_SYSTEM_PYTHON: 1                        # Use system Python for uv
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # Opt-in Node.js 24 to avoid deprecation warnings
 
 jobs:
+  # -----------------------------------------
+  # BUILD JOB
+  # -----------------------------------------
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      # Step 1: Checkout the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
+      # Step 2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'  # Use latest stable Python
+          python-version: '3.12'  # Latest stable Python; adjust if needed
 
+      # Step 3: Install uv package manager
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      # Optional: cache uv packages for faster builds
+      # Step 4: Optional caching of uv packages for faster subsequent builds
       - name: Cache uv packages
         uses: actions/cache@v3
         with:
@@ -36,33 +59,41 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uvx-
 
+      # Step 5: Run the build.py script to export notebooks and apps
       - name: Export notebooks and apps
         run: |
           uv run .github/scripts/build.py --output-dir _site --template templates/tailwind.html.j2
+          echo "Build output:"
           tree _site || true
 
+      # Step 6: Verify that the _site folder is not empty
       - name: Verify output
         run: |
           if [ ! -d "_site" ] || [ -z "$(ls -A _site)" ]; then
-            echo "_site folder is empty! Aborting."
+            echo "_site folder is empty! Aborting deployment."
             exit 1
           fi
 
-      - name: Upload artifact
+      # Step 7: Upload the generated _site folder as artifact for deploy job
+      - name: Upload site artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: _site
 
+  # -----------------------------------------
+  # DEPLOY JOB
+  # -----------------------------------------
   deploy:
-    needs: build
+    needs: build           # Wait for build job to complete
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
+      pages: write         # Required to deploy to GitHub Pages
+      id-token: write      # Required for authentication
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Step 1: Deploy the uploaded _site artifact to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
