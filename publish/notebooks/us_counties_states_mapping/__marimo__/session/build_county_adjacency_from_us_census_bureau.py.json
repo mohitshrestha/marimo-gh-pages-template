@@ -1,0 +1,68 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.20.4",
+    "script_metadata_hash": "54f02a93e54a94407aeaef6e4607ee15"
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "1c76b12a80ad4a18f41818ec53a931eb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"2025-census-county-adjacency-builder\">2025 Census County Adjacency Builder</h1>\n<span class=\"paragraph\"><em>Dataset: U.S. Census County Adjacency File (2025 release)</em></span>\n<span class=\"paragraph\">Download and prepare the <strong>U.S. Census 2025 County Adjacency File</strong>, which lists each county (or county equivalent) and its neighboring counties.</span>\n<span class=\"paragraph\"><strong>Source</strong>\nU.S. Census Bureau \u2013 County Adjacency File\n<a href=\"https://www.census.gov/geographies/reference-files/time-series/geo/county-adjacency.html\" rel=\"noopener noreferrer\" target=\"_blank\">https://www.census.gov/geographies/reference-files/time-series/geo/county-adjacency.html</a></span>\n<span class=\"paragraph\"><strong>Dataset</strong></span>\n<ul>\n<li>Pipe-delimited national file (<code>|</code>)</li>\n<li>Includes counties from all <strong>50 states, DC, Puerto Rico, and Island Areas</strong></li>\n<li>Each row represents one <strong>county \u2192 neighboring county relationship</strong></li>\n<li>Relationships appear <strong>in both directions</strong> (A \u2192 B and B \u2192 A)</li>\n</ul>\n<span class=\"paragraph\"><strong>Columns</strong></span>\n<ul>\n<li><code>County Name</code></li>\n<li><code>County GEOID</code> (state FIPS + county FIPS)</li>\n<li><code>Neighbor Name</code></li>\n<li><code>Neighbor GEOID</code></li>\n<li><code>Length</code> (shared boundary length in meters, introduced in 2025)</li>\n</ul>\n<span class=\"paragraph\"><strong>Common Uses</strong></span>\n<ul>\n<li>Building <strong>county adjacency graphs</strong></li>\n<li>Regional clustering or spatial modeling</li>\n<li>Identifying <strong>neighboring counties for spillover analysis</strong></li>\n<li>Geographic joins across <strong>county-level datasets</strong></li>\n</ul>\n<span class=\"paragraph\"><strong>Outputs</strong></span>\n<ul>\n<li><code>data/processed/county_adjacency2025.txt</code></li>\n<li><code>data/processed/county_adjacency2025.csv</code></li>\n</ul></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "1e1978551896d1029a1647ed8282898b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "c3f1e39fdb89e9122d8577391da71d67",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "cd555207055a210fa419a2bf3cacc902",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='bkHC-0' random-id='6def126f-a24c-fc71-ad53-1ee312d777c0'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Autauga County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01001&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Chilton County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01021&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;52283&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Autauga County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01001&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Dallas County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01047&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;51498&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Autauga County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01001&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Elmore County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01051&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;32991&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Autauga County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01001&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Lowndes County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01085&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;59160&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Autauga County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01001&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Montgomery County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01101&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;14548&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Baldwin County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01003&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Clarke County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01025&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;47669&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Baldwin County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01003&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Escambia County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01053&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;29024&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Baldwin County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01003&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Mobile County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01097&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;136493&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Baldwin County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01003&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Monroe County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01099&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;21395&#92;&quot;},{&#92;&quot;County Name&#92;&quot;:&#92;&quot;Baldwin County, AL&#92;&quot;,&#92;&quot;County GEOID&#92;&quot;:&#92;&quot;01003&#92;&quot;,&#92;&quot;Neighbor Name&#92;&quot;:&#92;&quot;Washington County, AL&#92;&quot;,&#92;&quot;Neighbor GEOID&#92;&quot;:&#92;&quot;01129&#92;&quot;,&#92;&quot;Length&#92;&quot;:&#92;&quot;6682&#92;&quot;}]&quot;' data-total-rows='18968' data-total-columns='5' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;County Name&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;County GEOID&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;Neighbor Name&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;Neighbor GEOID&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;Length&quot;,[&quot;string&quot;,&quot;str&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false' data-download-file-name='&quot;df&quot;'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Downloading county_adjacency2025.txt\n\nSummary:\nRows: 18,968\n\nCounty adjacency in TXT format export complete: data\\processed\\county_adjacency2025.txt\n\nCounty adjacency in CSV format export complete: data\\processed\\county_adjacency2025.csv\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    }
+  ]
+}
