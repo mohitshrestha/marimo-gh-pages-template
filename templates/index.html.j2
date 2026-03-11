@@ -1,3 +1,17 @@
+{% macro render_group(title, items, type) %}
+<h2 class="section-title">{{ title }}{% if type %} - {{ type|capitalize }}{% endif %}</h2>
+<div class="cards">
+{% for item in items %}
+  <div class="card">
+    <div class="card-header {% if type == 'app' %}app{% endif %}">{{ item.display_name }}</div>
+    <div class="card-body">
+      <a href="{{ item.html_path }}" class="card-link {% if type == 'app' %}app{% endif %}">Open {% if type %}{{ type|capitalize }}{% else %}Notebook{% endif %}</a>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endmacro %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -97,38 +111,19 @@
 
     <main class="container">
 
-    {% if notebooks %}
-    <h2 class="section-title">Notebooks</h2>
-    <p>Interactive notebooks in edit mode - you can modify and experiment with the code</p>
-    <div class="cards">
-      {% for notebook in notebooks %}
-      <!-- {{ notebook.display_name }} Notebook -->
-      <div class="card">
-        <div class="card-header">{{ notebook.display_name }}</div>
-        <div class="card-body">
-          <a href="{{ notebook.html_path }}" class="card-link">Open Notebook</a>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
+      {% if notebooks %}
+        {% for category, items in notebooks.items() %}
+          {{ render_group(category, items, 'notebook') }}
+        {% endfor %}
+      {% endif %}
 
-    {% if apps %}
-    <h2 class="section-title">Apps</h2>
-    <p>Interactive applications in run mode - code is hidden for a clean user interface</p>
-    <div class="cards">
-      {% for app in apps %}
-      <!-- {{ app.display_name }} App -->
-      <div class="card">
-        <div class="card-header app">{{ app.display_name }}</div>
-        <div class="card-body">
-          <a href="{{ app.html_path }}" class="card-link app">Open App</a>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </main>
+      {% if apps %}
+        {% for category, items in apps.items() %}
+          {{ render_group(category, items, 'app') }}
+        {% endfor %}
+      {% endif %}
+
+    </main>
 
     <footer>
       <div class="container">
