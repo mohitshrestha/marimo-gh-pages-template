@@ -7,6 +7,9 @@
 # ]
 # ///
 
+# title: Linear Regression Tutorial
+# draft: true
+
 import marimo
 
 __generated_with = "0.20.4"
@@ -285,3 +288,4 @@ def _(curated_table):
 
 if __name__ == "__main__":
     app.run()
+
