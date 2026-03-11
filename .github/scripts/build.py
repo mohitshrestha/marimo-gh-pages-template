@@ -6,10 +6,12 @@ Features:
 - Supports nested folders for categories.
 - Skips draft files stored in `drafts/` folder.
 - Generates an index.html grouped by category.
+- Logs empty categories for easier debugging.
 - Tool-agnostic: works with Python scripts, Jupyter, Quarto, etc.
 """
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Dict, Union
 import jinja2
@@ -46,8 +48,8 @@ def export_file(file: Path, output_dir: Path, as_app: bool = False) -> Path:
     output_file = output_dir / file.with_suffix(".html")
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # TODO: Replace this with your actual export command if using Marimo or other tools
-    # Example for Marimo:
+    # TODO: Replace with your actual export command for Marimo or other tools
+    # Example:
     # cmd = ["uvx", "marimo", "export", "html-wasm", str(file), "-o", str(output_file)]
     # if as_app:
     #     cmd.extend(["--mode", "run", "--no-show-code"])
@@ -66,28 +68,43 @@ def build_data(folder: Path, output_dir: Path, as_app: bool = False) -> List[Dic
     Build structured data for template rendering:
     - groups files by first-level subfolder (category)
     - creates display_name and html_path
+    - logs empty categories
     """
     data = []
+    categories_seen = set()
+
     for file in collect_files(folder):
-        # Skip any files that are inside a drafts folder
+        # Skip drafts
         if DRAFTS_DIR in file.parents:
             logger.info(f"Skipping draft: {file}")
             continue
 
+        # Determine category
         category = file.parent.relative_to(folder).parts[0] if file.parent != folder else "Uncategorized"
+        categories_seen.add(category)
+
         html_path = export_file(file, output_dir, as_app)
         data.append({
             "display_name": human_readable_name(file),
             "html_path": str(html_path.relative_to(output_dir)),
             "category": category
         })
+
+    # Optional logging: detect empty categories
+    all_categories = {p.name for p in folder.iterdir() if p.is_dir()} or {"Uncategorized"}
+    empty_categories = all_categories - categories_seen
+    for cat in empty_categories:
+        logger.warning(f"No notebooks/apps found in category: '{cat}'")
+
     return data
 
 
 def generate_index(output_dir: Path, template_file: Path, notebooks: List[Dict], apps: List[Dict]):
     """Render index.html using Jinja2 template, grouped by category."""
-    env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_file.parent),
-                             autoescape=jinja2.select_autoescape(["html", "xml"]))
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(template_file.parent),
+        autoescape=jinja2.select_autoescape(["html", "xml"])
+    )
     template = env.get_template(template_file.name)
 
     # Group items by category
@@ -119,9 +136,10 @@ def main(
     Build the website:
     1. Export notebooks and apps from publish/ folder.
     2. Skip drafts automatically.
-    3. Generate grouped index.html.
+    3. Log empty categories.
+    4. Generate grouped index.html.
+    5. Exit with code 1 if no files found (GitHub Actions fails explicitly).
     """
-
     output_dir = Path(output_dir)
     template_file = Path(template)
 
@@ -133,9 +151,10 @@ def main(
     notebooks = build_data(PUBLISH_DIR / "notebooks", output_dir, as_app=False)
     apps = build_data(PUBLISH_DIR / "apps", output_dir, as_app=True)
 
+    # Exit with proper code if nothing to publish
     if not notebooks and not apps:
-        logger.warning("No files to publish! Exiting.")
-        return
+        logger.error("No notebooks or apps found to publish! Exiting with code 1.")
+        sys.exit(1)
 
     generate_index(output_dir, template_file, notebooks, apps)
     logger.info("Build completed successfully.")
